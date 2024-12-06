@@ -1,3 +1,3 @@
 
 // configuracion del rutas relativas
-const APP_ROOT = "/Practica 06_2/";
+const APP_ROOT = "/Practica06_2/";

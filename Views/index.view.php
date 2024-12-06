@@ -21,7 +21,7 @@
             <h1>Tic Tac Toe</h1>
             
             <div class="timer-container">
-                <p id="timer">00:</p>
+                <p id="timer">00:00</p>
             </div>
 
             <div class="board" id="board">

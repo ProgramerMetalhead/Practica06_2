@@ -7,9 +7,10 @@ const cells = document.querySelectorAll('[data-cell]');
 const restartButton = document.getElementById('restart');
 const winnerText = document.getElementById('winner');
 const timerDisplay = document.getElementById('timer');
+const recordsGird = document.getElementById("score-table");
 
 let currentPlayer;
-let gameActive;
+let gameActive = false;
 let gameState; // El estado del tablero
 
 let time = 0;
@@ -19,30 +20,6 @@ let isRunning;
 let min = 0; // Estado del contador
 let seg = 0;
 let inter = 0;
-
-// Función para manejar clics en las celdas
-const handleCellClick = (e) => {
-    const index = Array.from(cells).indexOf(e.target);
-    if (gameState[index] || !gameActive) return; // Ignorar si la celda ya está ocupada
-
-    gameState[index] = currentPlayer;
-    e.target.textContent = currentPlayer;
-
-    const winner = checkWinner();
-    if (winner) {
-        gameActive = false;
-        pauseTimer();
-        winnerText.textContent = `${winner} ha ganado!`; 
-
-    } else if (!gameState.includes('')) {
-        gameActive = false;
-        pauseTimer();
-        winnerText.textContent = 'Empate!';
-
-    } else {
-        currentPlayer = currentPlayer === 'X' ? 'O' : 'X'; // Cambiar turno
-    }
-};
 
 // Reiniciar el juego
 const inicialState = () => {
@@ -54,40 +31,49 @@ const inicialState = () => {
     winnerText.textContent = '';
     inicialTimer();
     cells.forEach(cell => cell.textContent = '');
+    btn_start.style.display = "none";
+    btn_end.style.display = "block";
+};
 
+// estado final
+const finalState = () => {
+    gameActive = false;
+    pauseTimer();
     // Remueve los eventos de clic a las celdas
     cells.forEach(cell => {
         cell.removeEventListener('click', handleCellClick);
     });
-
-    btn_start.style.display = "";
+    btn_start.style.display = "block";
     btn_end.style.display = "none";
-};
+}
 
-// inicializa un estado inicial
-inicialState();
+// revisa si el juego ha terminado
+const checkwinner = () => {
 
-// Evento inicializador
-btn_start.addEventListener('click',start_game);
+    const winner = wincondition();
+    if (winner){
+        finalState();
+        winnerText.textContent = `${winner} ha ganado`;
+        if (winner === "Player"){
+            // registra el record si el jugador gano
+            const player = prompt("Ingrese un gamertag");
+            const score = (min * 60) + seg;
+            PostRecord(player,score);
+        }
 
-btn_end.addEventListener('click',inicialState);
-
-function start_game(){
-
-    // Iniciar el contador del tiempo
-    startTimer();
-
-    // Añadir los eventos de clic a las celdas
-    cells.forEach(cell => {
-        cell.addEventListener('click', handleCellClick);
-    });
-
-    btn_start.style.display = "none";
-    btn_end.style.display = "block";
+    }
+    else if (!gameState.includes('')) {
+        finalState();
+        winnerText.textContent = `Empate`;
+    }
+    else {
+        turn(); // cambiar de turno
+    }
 
 }
+
 // Comprobar si un jugador ha ganado
-const checkWinner = () => {
+const wincondition = () => {
     const winningCombinations = [
         [0, 1, 2], [3, 4, 5], [6, 7, 8], // filas
         [0, 3, 6], [1, 4, 7], [2, 5, 8], // columnas
@@ -97,11 +83,76 @@ const checkWinner = () => {
     for (let combination of winningCombinations) {
         const [a, b, c] = combination;
         if (gameState[a] && gameState[a] === gameState[b] && gameState[a] === gameState[c]) {
-            return gameState[a];
+
+            if (gameState[a] === "X"){
+                return "Player";
+            }
+            else {
+                return "CPU";
+            }
         }
     }
     return null;
 };
+
+// Función para manejar clics en las celdas
+const handleCellClick = (e) => {
+    const index = Array.from(cells).indexOf(e.target);
+    if (gameState[index] || !gameActive) return; // Ignorar si la celda ya está ocupada
+
+    gameState[index] = currentPlayer;
+    e.target.textContent = currentPlayer;
+    
+    if (gameActive) checkwinner();
+
+};
+
+// inicializa un estado inicial
+GetRecords();
+
+// Evento inicializador
+btn_start.addEventListener('click',start_game);
+
+btn_end.addEventListener('click',finalState);
+
+function start_game(){
+    // Estado inicial del juego
+    inicialState();
+    // Iniciar el contador del tiempo
+    startTimer();
+    // Añadir los eventos de clic a las celdas
+    cells.forEach(cell => {
+        cell.addEventListener('click', handleCellClick);
+    });
+
+}
+
+// cambiar el turno
+function turn(){
+
+    if (currentPlayer === "X"){
+        currentPlayer = "0"
+        cells.forEach(cell => {cell.disabled = true;}); // deshabilita las casillas
+        CPU_movement();
+    }
+    else{
+        currentPlayer = "X";
+        cells.forEach(cell => {cell.disabled = false;}); // deshabilita las casillas
+    }   
+
+}
+
+// CPU
+function CPU_movement(){
+    
+    const index = Math.floor(Math.random() * 8);
+    if (gameState[index] || !gameActive) {CPU_movement(); return;} // Ignorar si la celda ya está ocupada
+    gameState[index] = currentPlayer;
+    cells[index].textContent = currentPlayer;
+
+    checkwinner();
+
+}
 
 // Actulizar el contador en pantalla
 
@@ -168,7 +219,11 @@ async function GetRecords(){
         }
 
         // añadir los registros a las tablas
-        
+        jsonRes.forEach(playerRecord => {
+            const tag = `<tr><td>${playerRecord.player}</td>
+                             <td>${playerRecord.score}</td></tr>`;
+            recordsGird.insertAdjacentHTML("beforeend",tag);             
+        });
 
     } catch(error){
         alert(error.message);
@@ -177,11 +232,11 @@ async function GetRecords(){
 }
 
 // Enviar records
-async function PostRecord(playername, score) {
+async function PostRecord(player, score) {
 
     try{
-        const score = {
-            playername: playername,
+        const record = {
+            player: player,
             score: score
         }
         
@@ -190,7 +245,7 @@ async function PostRecord(playername, score) {
             headers: {
                 'Content-type':'application/json'
             },
-            body: JSON.stringify(score)
+            body: JSON.stringify(record)
         });
 
         const jsonRes = await response.json();
@@ -199,10 +254,10 @@ async function PostRecord(playername, score) {
             throw new Error("No se ha encontrado respuesta con el servidor");
         }
         
-        else if (!jsonRes.Error){
+        else if (jsonRes.Error){
             throw new Error(jsonRes.ErrMessage);
         }
-        
+                
 
     }catch(error){
         alert(error.message);
